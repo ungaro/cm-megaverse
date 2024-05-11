@@ -7,13 +7,14 @@ const api = new MegaverseAPI();
 
 console.log(figlet.textSync('Crossmint   MegaVerse'));
 
-
 const program = new Command()
   .version('1.0.0')
   .description('Astral Map Explorer: Navigate and Achieve Celestial Goals.')
-  .option('-m, --ls  [value]', 'Show my Map')
+  .option('-m, --showmap', 'Show my Map')
+  .option('-g, --showgoal', 'Show my Map')
   .option('-p1, --phase1', 'Phase 1 Solution')
   .option('-p2, --phase2', 'Phase 2 Solution')
+  .option('-v, --validate', 'Validate')
   .parse(process.argv);
 
 const options = program.opts();
@@ -31,11 +32,32 @@ Here is your Goal Map:
     `);
 }
 
-if (options.ls) {
+if (options.showmap) {
   greetAstralTraveler();
-  const map = await api.getMap();
+  const map = await api.getGoal();
   //console.log('Goal Map from Main: ', map);
   api.showMap(map);
+}
+
+if (options.showgoal) {
+  greetAstralTraveler();
+  const map = await api.getGoal();
+  //console.log('Goal Map from Main: ', map);
+  api.showMap(map);
+}
+
+if (options.phase1) {
+  const map = await api.getGoal();
+  api.postPolyanets(map);
+}
+
+if (options.phase2) {
+  const map = await api.getGoal();
+  api.processMapEntities(map);
+}
+
+if (options.validate) {
+  api.validate();
 }
 
 if (!process.argv.slice(2).length) {
