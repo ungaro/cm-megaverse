@@ -15,6 +15,7 @@ const program = new Command()
   .option('-p1, --phase1', 'Phase 1 Solution')
   .option('-p2, --phase2', 'Phase 2 Solution')
   .option('-v, --validate', 'Validate')
+  .option('-r, --reset', 'Reset')
   .parse(process.argv);
 
 const options = program.opts();
@@ -34,8 +35,8 @@ Here is your Goal Map:
 
 if (options.showmap) {
   greetAstralTraveler();
-  const map = await api.getGoal();
-  //console.log('Goal Map from Main: ', map);
+  const map = await api.getMap();
+  console.log('Goal Map from Main: ', map);
   api.showMap(map);
 }
 
@@ -43,17 +44,21 @@ if (options.showgoal) {
   greetAstralTraveler();
   const map = await api.getGoal();
   //console.log('Goal Map from Main: ', map);
-  api.showMap(map);
+  //api.showMap(map);
+}
+
+if (options.reset) {
+  await api.reset();
 }
 
 if (options.phase1) {
   const map = await api.getGoal();
-  api.postPolyanets(map);
+  //api.postPolyanets(map);
 }
 
 if (options.phase2) {
   const map = await api.getGoal();
-  api.processMapEntities(map);
+  //api.processMapEntities(map);
 }
 
 if (options.validate) {

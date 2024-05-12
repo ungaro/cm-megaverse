@@ -2,6 +2,10 @@ import 'dotenv/config';
 import pLimit from 'p-limit';
 import xior from 'xior';
 import errorRetryPlugin from 'xior/plugins/error-retry';
+import ky from 'ky';
+
+const BASE_URL: string | undefined = process.env.API_BASE_URL; // Adjusted to use environment variable for base URL
+const CANDIDATE_ID: string | undefined = process.env.CANDIDATE_ID; // Adjusted to use environment variable for base URL
 
 interface IGoalMap {
   data: string[][];
@@ -13,7 +17,7 @@ interface IMapContent {
   direction?: 'up' | 'down' | 'left' | 'right';
 }
 
-interface ISecondJson {
+interface ICurrentMap {
   map: {
     content: (IMapContent | null)[][];
   };
@@ -39,8 +43,14 @@ const TYPE_MAP: ITypeMap = {
   },
 };
 
+const URL_MAP: ITypeMap = {
+  0: `${BASE_URL}polyanets`,
+  1: `${BASE_URL}soloons`,
+  2: `${BASE_URL}comeths`,
+};
+
 interface IMegaverseAPI {
-  getMap(): Promise<IGoalMap>;
+  getMap(): Promise<ICurrentMap>;
   showMap(map: IGoalMap): void;
 }
 
@@ -59,47 +69,12 @@ const POLYANET_EMOJI = '\u{1FA90}';
 const SOLOON_EMOJI = '\u{1F319}';
 const COMETH_EMOJI = '\u{2604}';
 
-const BASE_URL: string | undefined = process.env.API_BASE_URL; // Adjusted to use environment variable for base URL
-const CANDIDATE_ID: string | undefined = process.env.CANDIDATE_ID; // Adjusted to use environment variable for base URL
-
-const http = xior.create();
-
-http.plugins.use(
-  errorRetryPlugin({
-    retryTimes: 100,
-    retryInterval: (count, config, error) => {
-      // Customize retry interval logic as needed
-      //return Math.min(10 * 1000, 2 * (1000 * 2 ** (count - 1))); // Increase the interval by 1 second with each retry
-      return 2 * (1000 * 2 ** (count - 1)); // Increase the interval by 1 second with each retry
-    },
-    onRetry: (config, error, count) => {
-      console.log(
-        `${config.method} ${config.url} retry ${count} times due to ${error.message}`
-      );
-    },
-  })
-);
 
 export class MegaverseAPI implements IMegaverseAPI {
-  //export class MegaVerse {
-  async createXShape(): Promise<void> {
-    const size = 11;
-    const tasks = [];
 
-    // Collect all operations into batches
-    for (let i = 2; i < size - 2; i++) {
-      tasks.push({row: i, column: i});
-      tasks.push({row: i, column: size - 1 - i});
-    }
-    const limit = pLimit(1);
 
-    // If `limit` can handle batches or if another utility method is better suited for batch processing, use it here
 
-    tasks.map(
-      task => () => limit(() => this.createEntity(EntityName.polyanet, task))
-    );
-    await Promise.all(tasks);
-  }
+
 
   public async postPolyanets(goalMap: IGoalMap): Promise<void> {
     let requests: Promise<any>[] = [];
@@ -114,7 +89,19 @@ export class MegaverseAPI implements IMegaverseAPI {
           };
           //console.log("Payload: ", payload);
 
-          const request = http
+
+
+        const request = ky.post(`${BASE_URL}polyanets`, {json: payload,retry: {
+            limit: 100,
+            methods: ['post'],
+            statusCodes: [429],
+            backoffLimit: Infinity,
+            delay: attemptCount => 1 * (2 ** (attemptCount - 1)) * 1000
+        }}).json();
+
+
+/*
+          const request = ky
             .post(`${BASE_URL}polyanets`, payload, {
               enableRetry: true, // Enable retry for POST requests
               retryTimes: 100, // Custom retry times if needed
@@ -129,7 +116,7 @@ export class MegaverseAPI implements IMegaverseAPI {
                 `Failed to post POLYANET at row ${rowIndex}, column ${columnIndex}: ${error}`
               )
             );
-
+*/
           requests.push(request);
         }
       });
@@ -139,11 +126,16 @@ export class MegaverseAPI implements IMegaverseAPI {
     //await Promise.all(requests);
   }
 
-  public async getGoal(): Promise<IGoalMap> {
-    const response = await http.get(`${BASE_URL}/map/${CANDIDATE_ID}/goal`);
+  //public async getGoal(): Promise<IGoalMap> {
+    public async getGoal() {
+        const response = await ky.get(`${BASE_URL}/map/${CANDIDATE_ID}/goal`);
+    console.log('Response: ', response);
+ /*
+    console.log('Response: ', response.data?.goal)
     const goalMap = response.data?.goal;
     console.log('Goal Map: ', goalMap);
     return {data: response.data?.goal};
+    */
   }
 
   public showMap(map: IGoalMap): void {
@@ -179,17 +171,25 @@ export class MegaverseAPI implements IMegaverseAPI {
     );
 
     mapRows.forEach(rowString => console.log(rowString));
+
   }
 
-  public async getMap(): Promise<ISecondJson> {
-    const response = await http.get(`${BASE_URL}/map/${CANDIDATE_ID}`);
-    const goalMap = response.data?.map.content;
+  public async getMap(): Promise<ICurrentMap> {
+    const response = await ky.get(`${BASE_URL}/map/${CANDIDATE_ID}`).json<ICurrentMap>();
 
-    console.log('Map: ', goalMap);
-    //return {goalMap};
+
+
+
+    //console.log(`${BASE_URL}/map/${CANDIDATE_ID}`);
+    //console.log('Response: ', response);
+    
+    //const goalMap = response.map.content;
+
+    //console.log('Map: ', goalMap);
+    return response;
     //return {data: response.data?.goal};
 
-    return {map: {content: goalMap}};
+    //return {map: {content:  [[null],[null]] }};
   }
 
   public async processMapEntities(goalMap: IGoalMap): Promise<void> {
@@ -226,6 +226,18 @@ export class MegaverseAPI implements IMegaverseAPI {
             return; // Skip processing if it's not a special entity
         }
 
+
+        //const request = ky.post(`${url}`, {json: payload}).json();
+        const request = ky.post(`${url}`, {json: payload,retry: {
+            limit: 100,
+            methods: ['post'],
+            statusCodes: [429],
+            backoffLimit: Infinity,
+            delay: attemptCount => 1 * (2 ** (attemptCount - 1)) * 1000
+        }}).json();
+
+
+/*
         const postRequest = http
           .post(`${url}`, payload, {
             enableRetry: true,
@@ -241,8 +253,8 @@ export class MegaverseAPI implements IMegaverseAPI {
               `Error posting ${cell} at row ${rowIndex}, column ${columnIndex}: ${error}`
             )
           );
-
-        requests.push(postRequest);
+*/
+        //requests.push(request);
       });
     });
 
@@ -254,10 +266,141 @@ export class MegaverseAPI implements IMegaverseAPI {
     const goal = this.getGoal();
     const map = this.getMap();
 
+
+    //https://challenge.crossmint.io/api/map/1e79d4a5-5c94-4b60-99ff-8f451933c596/validate
+    /*
     const currentMap = this.normalizeCurrentMap(map.map.content);
     const areEqual = this.compareArrays(goal.goal, currentMap);
     console.log('Do the JSON files represent the same data?', areEqual);
+    */
   }
+
+
+  public async reset() {
+    console.log('reset logic here');
+    const map = await this.getMap();
+
+    let requests: Promise<any>[] = [];
+
+    map.map.content.forEach((row, rowIndex) => {
+      row.forEach(async (cell, columnIndex) => {
+        if (cell !== null) {
+          const payload = {
+            row: rowIndex,
+            column: columnIndex,
+            candidateId: CANDIDATE_ID,
+          };
+          console.log('Payload: ', payload);
+
+          const endpoint = `${URL_MAP[cell.type as number]}`;
+
+          console.log('Endpoint: ', endpoint);
+
+          try {
+            const request = ky.delete(endpoint, {json: payload,retry: {
+                limit: 100,
+                methods: ['delete'],
+                statusCodes: [429],
+                backoffLimit: Infinity,
+                delay: attemptCount => 1 * (2 ** (attemptCount - 1)) * 1000
+            }}).json();
+            requests.push(request);
+          } catch (error) {
+            console.error(`Error deleting at ${endpoint}: `, error);
+          }
+        }
+      });
+    });
+
+    // Wait for all delete requests to complete
+    //await Promise.all(requests);
+    console.log('All deletes have been processed.');
+  }
+
+
+/*
+  public async reset() {
+    console.log('reset logic here');
+    //const goal = this.getGoal();
+    const map = await this.getMap();
+
+    let requests: Promise<any>[] = [];
+
+    map.map.content.forEach((row, rowIndex) => {
+      row.forEach((cell, columnIndex) => {
+        if (cell !== null) {
+          const payload = {
+            row: rowIndex,
+            column: columnIndex,
+            candidateId: CANDIDATE_ID,
+          };
+          console.log('Payload: ', payload);
+
+          const endpoint = `${URL_MAP[cell.type as number]}/)}`;
+
+          console.log('Endpoint: ', endpoint);
+
+          const json = ky.delete(endpoint, {json: payload}).json();
+        }
+      });
+    });
+  }
+*/
+  /*
+            const endpoint = `${URL_MAP[cell.type as number]}/?row=${encodeURIComponent(
+                rowIndex
+              )}&column=${encodeURIComponent(columnIndex)}&candidateId=${encodeURIComponent(
+                CANDIDATE_ID as string
+              )}`;
+*/
+
+  //this.deleteEntity(cell.type as number,rowIndex,columnIndex);
+
+  /*
+            const request = http
+            .delete(`${endpoint}`,payload, {
+              enableRetry: true, // Enable retry for POST requests
+              retryTimes: 100, // Custom retry times if needed
+            })
+*/
+
+  /*
+            const request =  http.delete(`${endpoint}`, {
+                params: payload,
+                headers: {
+                  'content-type': 'application/json',
+                },
+              })
+            .then(() =>
+              console.log(
+                `Successfully posted POLYANET at row ${rowIndex}, column ${columnIndex}`
+              )
+            )
+            .catch(error =>
+              console.error(
+                `Failed to post POLYANET at row ${rowIndex}, column ${columnIndex}: ${error}`
+              )
+            );
+
+*/
+  /*
+            await got.delete(endpoint, {
+                headers: {
+                    'content-type': 'application/json',
+                },
+                body: JSON.stringify(payload)
+              });
+
+
+*/
+
+  /*
+    const currentMap = this.normalizeCurrentMap(map.map.content);
+    const areEqual = this.compareArrays(goal.goal, currentMap);
+    console.log('Do the JSON files represent the same data?', areEqual);
+    */
+
+  //requests.push(request);
 
   // Normalizes the second JSON structure
   normalizeCurrentMap(content: (IMapContent | null)[][]): string[][] {
@@ -303,15 +446,42 @@ export class MegaverseAPI implements IMegaverseAPI {
     );
   }
 
-  private async deleteEntity(row: number, column: number): Promise<void> {
-    const endpoint = `${BASE_URL}/polyanets?row=${encodeURIComponent(
+  private async deleteEntity(
+    type: number,
+    row: number,
+    column: number
+  ): Promise<void> {
+    /*
+    let requests: Promise<any>[] = [];
+
+
+    const endpoint = `${URL_MAP[type]}/?row=${encodeURIComponent(
       row
     )}&column=${encodeURIComponent(column)}&candidateId=${encodeURIComponent(
       CANDIDATE_ID as string
     )}`;
+    console.log("Endpoint: ", endpoint);
+    const request = http
+    .post(`${endpoint}`, payload, {
+      enableRetry: true, // Enable retry for POST requests
+      retryTimes: 100, // Custom retry times if needed
+    })
+    .then(() =>
+      console.log(
+        `Successfully posted POLYANET at row ${rowIndex}, column ${columnIndex}`
+      )
+    )
+    .catch(error =>
+      console.error(
+        `Failed to post POLYANET at row ${rowIndex}, column ${columnIndex}: ${error}`
+      )
+    );
 
+  requests.push(request);
+  */
+    /*
     try {
-      await xior.delete<{field1: string; field2: number}>(endpoint);
+      await http.delete<{row: number; column: number}>(endpoint);
 
       // Log only if necessary for debugging, consider using a debug log level or conditionally log based on an environment variable
       console.debug(`Polyanet deleted at (${row}, ${column})`);
@@ -322,22 +492,7 @@ export class MegaverseAPI implements IMegaverseAPI {
         )}`
       );
     }
-  }
-
-  private async createEntity(
-    entityType: EntityName,
-    entityDetail: EntityDetail
-  ): Promise<void> {
-    const {row, column, color, direction} = entityDetail;
-    const postData = {
-      row,
-      column,
-      candidateId: CANDIDATE_ID,
-      ...(color && {color}),
-      ...(direction && {direction}),
-    };
-
-    console.log(postData);
+*/
   }
 
   private parseErrorMessage(error: any): string {
