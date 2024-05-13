@@ -3,12 +3,19 @@ import pLimit from 'p-limit';
 import xior from 'xior';
 import errorRetryPlugin from 'xior/plugins/error-retry';
 import ky from 'ky';
+import {SingleBar, Presets} from 'cli-progress';
+
+require('events').EventEmitter.defaultMaxListeners = Infinity;
 
 const BASE_URL: string | undefined = process.env.API_BASE_URL; // Adjusted to use environment variable for base URL
 const CANDIDATE_ID: string | undefined = process.env.CANDIDATE_ID; // Adjusted to use environment variable for base URL
 
 interface IGoalMap {
   data: string[][];
+}
+
+interface IGoalMapJSON {
+  goal: string[][];
 }
 
 interface IMapContent {
@@ -51,7 +58,7 @@ const URL_MAP: ITypeMap = {
 
 interface IMegaverseAPI {
   getMap(): Promise<ICurrentMap>;
-  showMap(map: IGoalMap): void;
+  showMap(map: ICurrentMap): void;
 }
 
 interface IPayload {
@@ -69,13 +76,7 @@ const POLYANET_EMOJI = '\u{1FA90}';
 const SOLOON_EMOJI = '\u{1F319}';
 const COMETH_EMOJI = '\u{2604}';
 
-
 export class MegaverseAPI implements IMegaverseAPI {
-
-
-
-
-
   public async postPolyanets(goalMap: IGoalMap): Promise<void> {
     let requests: Promise<any>[] = [];
 
@@ -89,34 +90,19 @@ export class MegaverseAPI implements IMegaverseAPI {
           };
           //console.log("Payload: ", payload);
 
-
-
-        const request = ky.post(`${BASE_URL}polyanets`, {json: payload,retry: {
-            limit: 100,
-            methods: ['post'],
-            statusCodes: [429],
-            backoffLimit: Infinity,
-            delay: attemptCount => 1 * (2 ** (attemptCount - 1)) * 1000
-        }}).json();
-
-
-/*
           const request = ky
-            .post(`${BASE_URL}polyanets`, payload, {
-              enableRetry: true, // Enable retry for POST requests
-              retryTimes: 100, // Custom retry times if needed
+            .post(`${BASE_URL}polyanets`, {
+              json: payload,
+              retry: {
+                limit: 100,
+                methods: ['post'],
+                statusCodes: [429],
+                backoffLimit: Infinity,
+                delay: attemptCount => 1 * 2 ** (attemptCount - 1) * 1000,
+              },
             })
-            .then(() =>
-              console.log(
-                `Successfully posted POLYANET at row ${rowIndex}, column ${columnIndex}`
-              )
-            )
-            .catch(error =>
-              console.error(
-                `Failed to post POLYANET at row ${rowIndex}, column ${columnIndex}: ${error}`
-              )
-            );
-*/
+            .json();
+
           requests.push(request);
         }
       });
@@ -126,22 +112,49 @@ export class MegaverseAPI implements IMegaverseAPI {
     //await Promise.all(requests);
   }
 
-  //public async getGoal(): Promise<IGoalMap> {
-    public async getGoal() {
-        const response = await ky.get(`${BASE_URL}/map/${CANDIDATE_ID}/goal`);
-    console.log('Response: ', response);
- /*
-    console.log('Response: ', response.data?.goal)
-    const goalMap = response.data?.goal;
-    console.log('Goal Map: ', goalMap);
-    return {data: response.data?.goal};
-    */
+  public async getGoal(): Promise<IGoalMap> {
+    const response = await ky
+      .get(`${BASE_URL}/map/${CANDIDATE_ID}/goal`)
+      .json<IGoalMapJSON>();
+    return {data: response.goal};
   }
 
-  public showMap(map: IGoalMap): void {
+  public async getMap(): Promise<ICurrentMap> {
+    const response = await ky
+      .get(`${BASE_URL}/map/${CANDIDATE_ID}`)
+      .json<ICurrentMap>();
+
+    return {map: {content: response.map?.content}};
+  }
+
+  public showMap(map: ICurrentMap): void {
+    console.log('CURRENT MAP', map);
+    const mapRows = map.map.content.forEach(row =>
+      row
+        .map(cell =>
+          cell === null
+            ? SPACE_EMOJI
+            : cell.type === 0
+              ? POLYANET_EMOJI
+              : cell.type === 1
+                ? SOLOON_EMOJI
+                : cell.type === 2
+                  ? COMETH_EMOJI
+                  : ' '
+        )
+        .join('')
+    );
+
+    console.log('MAP ROWS', mapRows);
+    //mapRows.forEach(rowString => console.log(rowString));
+
+    //mapRows.forEach(rowString => console.log(rowString));
+  }
+
+  public showGoal(map: IGoalMap): void {
     // we want 4 empty spaces on the left as it looks better in the console, just for aesthetics purposes.
     const leftMargin = ' '.repeat(4);
-    console.log('Here is your Goal Map');
+    //console.log('Here is your Goal Map');
     const mapRows = map.data.map(
       row =>
         leftMargin +
@@ -171,33 +184,19 @@ export class MegaverseAPI implements IMegaverseAPI {
     );
 
     mapRows.forEach(rowString => console.log(rowString));
-
-  }
-
-  public async getMap(): Promise<ICurrentMap> {
-    const response = await ky.get(`${BASE_URL}/map/${CANDIDATE_ID}`).json<ICurrentMap>();
-
-
-
-
-    //console.log(`${BASE_URL}/map/${CANDIDATE_ID}`);
-    //console.log('Response: ', response);
-    
-    //const goalMap = response.map.content;
-
-    //console.log('Map: ', goalMap);
-    return response;
-    //return {data: response.data?.goal};
-
-    //return {map: {content:  [[null],[null]] }};
   }
 
   public async processMapEntities(goalMap: IGoalMap): Promise<void> {
-    let requests: Promise<void>[] = [];
+    const requests: Promise<Response>[] = [];
+
+    const bar1 = new SingleBar({}, Presets.shades_classic);
+
+    const barLenght = goalMap.data.length * goalMap.data.length;
+    bar1.start(barLenght, 0);
 
     goalMap.data.forEach((row, rowIndex) => {
       row.forEach((cell, columnIndex) => {
-        let payload: any = {
+        const payload: any = {
           row: rowIndex,
           column: columnIndex,
           candidateId: CANDIDATE_ID,
@@ -226,38 +225,34 @@ export class MegaverseAPI implements IMegaverseAPI {
             return; // Skip processing if it's not a special entity
         }
 
-
-        //const request = ky.post(`${url}`, {json: payload}).json();
-        const request = ky.post(`${url}`, {json: payload,retry: {
+        const request = ky.post(`${url}`, {
+          json: payload,
+          retry: {
             limit: 100,
             methods: ['post'],
             statusCodes: [429],
             backoffLimit: Infinity,
-            delay: attemptCount => 1 * (2 ** (attemptCount - 1)) * 1000
-        }}).json();
+            delay: attemptCount => 1 * 2 ** (attemptCount - 1) * 1000,
+          },
 
+          hooks: {
+            afterResponse: [
+              (_request, _options, response) => {
+                if (response.status == 200) {
+                  bar1.increment();
+                }
+              },
+            ],
+          },
+        });
 
-/*
-        const postRequest = http
-          .post(`${url}`, payload, {
-            enableRetry: true,
-            retryTimes: 100,
-          })
-          .then(() =>
-            console.log(
-              `Posted ${cell} at row ${rowIndex}, column ${columnIndex}`
-            )
-          )
-          .catch(error =>
-            console.error(
-              `Error posting ${cell} at row ${rowIndex}, column ${columnIndex}: ${error}`
-            )
-          );
-*/
-        //requests.push(request);
+        requests.push(request);
       });
     });
+    await Promise.all(requests);
 
+    // stop the progress bar
+    bar1.stop();
     console.log('All map entities have been processed successfully.');
   }
 
@@ -265,16 +260,7 @@ export class MegaverseAPI implements IMegaverseAPI {
     console.log('validation logic here');
     const goal = this.getGoal();
     const map = this.getMap();
-
-
-    //https://challenge.crossmint.io/api/map/1e79d4a5-5c94-4b60-99ff-8f451933c596/validate
-    /*
-    const currentMap = this.normalizeCurrentMap(map.map.content);
-    const areEqual = this.compareArrays(goal.goal, currentMap);
-    console.log('Do the JSON files represent the same data?', areEqual);
-    */
   }
-
 
   public async reset() {
     console.log('reset logic here');
@@ -297,13 +283,18 @@ export class MegaverseAPI implements IMegaverseAPI {
           console.log('Endpoint: ', endpoint);
 
           try {
-            const request = ky.delete(endpoint, {json: payload,retry: {
-                limit: 100,
-                methods: ['delete'],
-                statusCodes: [429],
-                backoffLimit: Infinity,
-                delay: attemptCount => 1 * (2 ** (attemptCount - 1)) * 1000
-            }}).json();
+            const request = ky
+              .delete(endpoint, {
+                json: payload,
+                retry: {
+                  limit: 100,
+                  methods: ['delete'],
+                  statusCodes: [429],
+                  backoffLimit: Infinity,
+                  delay: attemptCount => 1 * 2 ** (attemptCount - 1) * 1000,
+                },
+              })
+              .json();
             requests.push(request);
           } catch (error) {
             console.error(`Error deleting at ${endpoint}: `, error);
@@ -312,97 +303,10 @@ export class MegaverseAPI implements IMegaverseAPI {
       });
     });
 
-    // Wait for all delete requests to complete
-    //await Promise.all(requests);
+    await Promise.all(requests);
     console.log('All deletes have been processed.');
   }
 
-
-/*
-  public async reset() {
-    console.log('reset logic here');
-    //const goal = this.getGoal();
-    const map = await this.getMap();
-
-    let requests: Promise<any>[] = [];
-
-    map.map.content.forEach((row, rowIndex) => {
-      row.forEach((cell, columnIndex) => {
-        if (cell !== null) {
-          const payload = {
-            row: rowIndex,
-            column: columnIndex,
-            candidateId: CANDIDATE_ID,
-          };
-          console.log('Payload: ', payload);
-
-          const endpoint = `${URL_MAP[cell.type as number]}/)}`;
-
-          console.log('Endpoint: ', endpoint);
-
-          const json = ky.delete(endpoint, {json: payload}).json();
-        }
-      });
-    });
-  }
-*/
-  /*
-            const endpoint = `${URL_MAP[cell.type as number]}/?row=${encodeURIComponent(
-                rowIndex
-              )}&column=${encodeURIComponent(columnIndex)}&candidateId=${encodeURIComponent(
-                CANDIDATE_ID as string
-              )}`;
-*/
-
-  //this.deleteEntity(cell.type as number,rowIndex,columnIndex);
-
-  /*
-            const request = http
-            .delete(`${endpoint}`,payload, {
-              enableRetry: true, // Enable retry for POST requests
-              retryTimes: 100, // Custom retry times if needed
-            })
-*/
-
-  /*
-            const request =  http.delete(`${endpoint}`, {
-                params: payload,
-                headers: {
-                  'content-type': 'application/json',
-                },
-              })
-            .then(() =>
-              console.log(
-                `Successfully posted POLYANET at row ${rowIndex}, column ${columnIndex}`
-              )
-            )
-            .catch(error =>
-              console.error(
-                `Failed to post POLYANET at row ${rowIndex}, column ${columnIndex}: ${error}`
-              )
-            );
-
-*/
-  /*
-            await got.delete(endpoint, {
-                headers: {
-                    'content-type': 'application/json',
-                },
-                body: JSON.stringify(payload)
-              });
-
-
-*/
-
-  /*
-    const currentMap = this.normalizeCurrentMap(map.map.content);
-    const areEqual = this.compareArrays(goal.goal, currentMap);
-    console.log('Do the JSON files represent the same data?', areEqual);
-    */
-
-  //requests.push(request);
-
-  // Normalizes the second JSON structure
   normalizeCurrentMap(content: (IMapContent | null)[][]): string[][] {
     return content.map(row =>
       row.map(cell => {
@@ -450,50 +354,7 @@ export class MegaverseAPI implements IMegaverseAPI {
     type: number,
     row: number,
     column: number
-  ): Promise<void> {
-    /*
-    let requests: Promise<any>[] = [];
-
-
-    const endpoint = `${URL_MAP[type]}/?row=${encodeURIComponent(
-      row
-    )}&column=${encodeURIComponent(column)}&candidateId=${encodeURIComponent(
-      CANDIDATE_ID as string
-    )}`;
-    console.log("Endpoint: ", endpoint);
-    const request = http
-    .post(`${endpoint}`, payload, {
-      enableRetry: true, // Enable retry for POST requests
-      retryTimes: 100, // Custom retry times if needed
-    })
-    .then(() =>
-      console.log(
-        `Successfully posted POLYANET at row ${rowIndex}, column ${columnIndex}`
-      )
-    )
-    .catch(error =>
-      console.error(
-        `Failed to post POLYANET at row ${rowIndex}, column ${columnIndex}: ${error}`
-      )
-    );
-
-  requests.push(request);
-  */
-    /*
-    try {
-      await http.delete<{row: number; column: number}>(endpoint);
-
-      // Log only if necessary for debugging, consider using a debug log level or conditionally log based on an environment variable
-      console.debug(`Polyanet deleted at (${row}, ${column})`);
-    } catch (error: any) {
-      console.error(
-        `Failed to delete Polyanet at (${row}, ${column}): ${this.parseErrorMessage(
-          error
-        )}`
-      );
-    }
-*/
-  }
+  ): Promise<void> {}
 
   private parseErrorMessage(error: any): string {
     // Improved error message parsing
@@ -504,4 +365,25 @@ export class MegaverseAPI implements IMegaverseAPI {
     }
     return error.message;
   }
+
+
+  async makeApiRequest(endpoint: string, method: 'post' | 'delete', payload: any): Promise<void> {
+    try {
+        await ky(endpoint, {
+            method: method,
+            json: payload,
+            retry: {
+                limit: 100,
+                methods: [method],
+                statusCodes: [429],
+                backoffLimit: Infinity,
+                delay: attemptCount => Math.pow(2, attemptCount - 1) * 1000,
+            },
+        }).json();
+    } catch (error) {
+        console.error(`Error during ${method} at ${endpoint}: `, this.parseErrorMessage(error));
+    }
+}
+
+
 }

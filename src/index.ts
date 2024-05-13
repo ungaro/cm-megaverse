@@ -36,7 +36,7 @@ Here is your Goal Map:
 if (options.showmap) {
   greetAstralTraveler();
   const map = await api.getMap();
-  console.log('Goal Map from Main: ', map);
+  //console.log('Goal Map from Main: ', map);
   api.showMap(map);
 }
 
@@ -44,7 +44,7 @@ if (options.showgoal) {
   greetAstralTraveler();
   const map = await api.getGoal();
   //console.log('Goal Map from Main: ', map);
-  //api.showMap(map);
+  api.showGoal(map);
 }
 
 if (options.reset) {
@@ -58,7 +58,7 @@ if (options.phase1) {
 
 if (options.phase2) {
   const map = await api.getGoal();
-  //api.processMapEntities(map);
+  api.processMapEntities(map);
 }
 
 if (options.validate) {
