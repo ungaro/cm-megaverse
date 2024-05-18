@@ -366,24 +366,28 @@ export class MegaverseAPI implements IMegaverseAPI {
     return error.message;
   }
 
-
-  async makeApiRequest(endpoint: string, method: 'post' | 'delete', payload: any): Promise<void> {
+  async makeApiRequest(
+    endpoint: string,
+    method: 'post' | 'delete',
+    payload: any
+  ): Promise<void> {
     try {
-        await ky(endpoint, {
-            method: method,
-            json: payload,
-            retry: {
-                limit: 100,
-                methods: [method],
-                statusCodes: [429],
-                backoffLimit: Infinity,
-                delay: attemptCount => Math.pow(2, attemptCount - 1) * 1000,
-            },
-        }).json();
+      await ky(endpoint, {
+        method: method,
+        json: payload,
+        retry: {
+          limit: 100,
+          methods: [method],
+          statusCodes: [429],
+          backoffLimit: Infinity,
+          delay: attemptCount => Math.pow(2, attemptCount - 1) * 1000,
+        },
+      }).json();
     } catch (error) {
-        console.error(`Error during ${method} at ${endpoint}: `, this.parseErrorMessage(error));
+      console.error(
+        `Error during ${method} at ${endpoint}: `,
+        this.parseErrorMessage(error)
+      );
     }
-}
-
-
+  }
 }
