@@ -31,7 +31,7 @@ So strap in, activate your thrusters, and let the universe be your guide. And he
 
 🚀 May your journey be as bright as a supernova and your adventures as thrilling as a comet tail! 🪐
 
-Here is your Goal Map:
+Here is your  Map:
     `);
     }
 
