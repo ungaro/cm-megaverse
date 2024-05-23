@@ -45,14 +45,7 @@ interface IMegaverseAPI {
   getMap(): Promise<ICurrentMap>;
   showMap(map: ICurrentMap): void;
 }
-/*
-interface IPayload {
-  row: string;
-  column: string;
-  candidateId: string;
-}
 
-*/
 const SPACE_EMOJI = '\u{1F30C}';
 const POLYANET_EMOJI = '\u{1FA90}';
 const SOLOON_EMOJI = '\u{1F319}';
