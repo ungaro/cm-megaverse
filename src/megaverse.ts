@@ -1,5 +1,6 @@
 import 'dotenv/config';
 import pLimit from 'p-limit';
+//import * as figlet from 'figlet';
 
 import ky from 'ky';
 import {SingleBar, MultiBar, Presets} from 'cli-progress';
@@ -60,7 +61,7 @@ interface IMegaverseAPI {
   getMap(): Promise<ICurrentMap>;
   showMap(map: ICurrentMap): void;
 }
-
+/*
 interface IPayload {
   row: string;
   column: string;
@@ -69,13 +70,24 @@ interface IPayload {
 
 type Color = 'blue' | 'red' | 'purple' | 'white';
 type Direction = 'up' | 'down' | 'left' | 'right';
-
+*/
 const SPACE_EMOJI = '\u{1F30C}';
 const POLYANET_EMOJI = '\u{1FA90}';
 const SOLOON_EMOJI = '\u{1F319}';
 const COMETH_EMOJI = '\u{2604}';
 
 export class MegaverseAPI implements IMegaverseAPI {
+  
+  
+
+  getBaseUrl(): string | undefined {
+    return process.env.API_BASE_URL;
+  }
+
+  getCandidateId(): string | undefined {
+    return process.env.CANDIDATE_ID;
+  }
+
   public async postPolyanets(goalMap: IGoalMap): Promise<void> {
     const requests: Promise<any>[] = [];
 
@@ -245,9 +257,6 @@ export class MegaverseAPI implements IMegaverseAPI {
   }
 
   public showMap(map: ICurrentMap): void {
-    //console.log('CURRENT MAP', map);
-
-    // Using `forEach` to iterate through each row and print it immediately
     map.map.content.forEach(row => {
       const rowString = row
         .map(cell => {
@@ -323,7 +332,6 @@ export class MegaverseAPI implements IMegaverseAPI {
         stopOnComplete: true,
         forceRedraw: true,
         hideCursor: true,
-        //      format: ' {bar} | {value}/{total}',
         format:
           'progress [{bar}] {percentage}% | ETA: {eta}s | {value}/{total}',
       },
@@ -377,9 +385,8 @@ export class MegaverseAPI implements IMegaverseAPI {
     });
     bar1.setTotal(barLength2);
 
+    // If remote state is same as Goal, we've submitted all the payloads succesfully
 
-   // If remote state is same as Goal, we've submitted all the payloads succesfully
-   
     if (barLength2 === 0) {
       console.log('All submissions have been processed.');
       bar1.stop();
