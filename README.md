@@ -1,16 +1,35 @@
-# cm-megaverse
+# Megaverse
 
+to install
 
+<code>yarn</code> or <code>bun</code>
 
-to install 
+Either build executable or use
 
-yarn
+```
+yarn build
+node ./dist/index.js
+```
 
+See [available Commands.](#commandline)
 
+## Run Tests
 
-Run Tests
+<code>yarn test</code>
 
-Build executable
+## Build executable
+
+Easiest way to build executable is using bun.
+
+<code>npm install -g bun</code>
+
+<code>bun create-executable-mac</code>
+
+<code>bun create-executable-windows</code>
+
+<code>bun create-executable-linux</code>
+
+<a name="commandline"></a>
 
 # Command Line Functions
 
@@ -33,9 +52,7 @@ Options:
   -g, --showgoal  Show my Goal Map
   -p1, --phase1   Phase 1 Solution
   -p2, --phase2   Phase 2 Solution
-  -v, --validate  Validate
   -r, --reset     Reset
-  -d, --diff      Difference
   -h, --help      display help for command
 
 </pre>
@@ -43,6 +60,7 @@ Options:
 You can use use <code>./megaverse --showmap</code> to see your current map in terminal.
 
 <a href="#"><img src="./_assets/cli_showmap.png"  width="600" ></a>
+
 </p>
 
 <p>
@@ -50,8 +68,17 @@ And you can use use <code>./megaverse --showgoal</code> to see your current goal
 
 <a href="#"><img src="./_assets/cli_showgoal.png"  width="600" ></a>
 </p>
-<a href="#"><img src="./_assets/cli_help.png" align="left" width="600" ></a>
 
 
+<p>
+And you can use use <code>./megaverse --phase1</code> or <code>./megaverse --phase2</code> to see solve the challenges.
 
+<a href="#"><img src="./_assets/cli_phase2.png"  width="600" ></a>
+</p>
+
+<p>
+And you can use use <code>./megaverse --reset</code> to see your current goal.
+
+<a href="#"><img src="./_assets/cli_reset.png"  width="600" ></a>
+</p>
 

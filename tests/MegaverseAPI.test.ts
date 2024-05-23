@@ -1,8 +1,9 @@
 // tests/megaverseAPI.test.ts
-import { MegaverseAPI } from '../src/megaverse.ts';
-import { ICurrentMap, IGoalMap } from '../src/megaverse.ts';
+import { MegaverseAPI } from '../src/megaverse';
+import { ICurrentMap, IGoalMap } from '../src/megaverse';
 import nock from 'nock';
-
+import * as matchers from 'jest-extended';
+expect.extend(matchers);
 
 
 describe('Environment Variables', () => {

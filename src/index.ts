@@ -1,5 +1,5 @@
 
-import * as figlet from 'figlet';
+import figlet from 'figlet';
 
 import { MegaverseAPI } from './megaverse.js';
 import { Command } from '@commander-js/extra-typings';
@@ -17,9 +17,7 @@ async function main() {
       .option('-g, --showgoal', 'Show my Goal Map')
       .option('-p1, --phase1', 'Phase 1 Solution')
       .option('-p2, --phase2', 'Phase 2 Solution')
-      .option('-v, --validate', 'Validate')
       .option('-r, --reset', 'Reset')
-      .option('-d, --diff', 'Difference')
       .parse(process.argv);
 
     const options = program.opts();
@@ -46,35 +44,24 @@ Here is your Goal Map:
     if (options.showgoal) {
       greetAstralTraveler();
       const map = await api.getGoal();
-      //console.log('Goal Map from Main: ', map);
       api.showGoal(map);
     }
     
-    if (options.diff) {
-      //console.log("DIFFERENCEs:",differences);
-      // If you want to print the differences
-      //differences.forEach(diff => console.log(diff));
-    
-      api.processMapEntities();
-    }
-    
+
     if (options.reset) {
       await api.reset();
     }
     
     if (options.phase1) {
-      const map = await api.getGoal();
-      //api.postPolyanets(map);
+      //const map = await api.getGoal();
+      api.postPolyanets();
     }
     
     if (options.phase2) {
-      const map = await api.getGoal();
-      //api.processMapEntities(map);
+      api.processMapEntities();
     }
     
-    if (options.validate) {
-      api.validate();
-    }
+
 
     if (!process.argv.slice(2).length) {
       program.outputHelp();

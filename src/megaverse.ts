@@ -1,6 +1,6 @@
 import 'dotenv/config';
 import pLimit from 'p-limit';
-//import * as figlet from 'figlet';
+import figlet from 'figlet';
 
 import ky from 'ky';
 import {SingleBar, MultiBar, Presets} from 'cli-progress';
@@ -11,7 +11,7 @@ EventEmitter.defaultMaxListeners = Infinity;
 const BASE_URL: string | undefined = process.env.API_BASE_URL; // Adjusted to use environment variable for base URL
 const CANDIDATE_ID: string | undefined = process.env.CANDIDATE_ID; // Adjusted to use environment variable for base URL
 
-interface IGoalMap {
+export interface IGoalMap {
   data: (string | null)[][];
 }
 
@@ -25,7 +25,7 @@ interface IMapContent {
   direction?: 'up' | 'down' | 'left' | 'right';
 }
 
-interface ICurrentMap {
+export interface ICurrentMap {
   map: {
     content: (IMapContent | null)[][];
   };
@@ -77,8 +77,6 @@ const SOLOON_EMOJI = '\u{1F319}';
 const COMETH_EMOJI = '\u{2604}';
 
 export class MegaverseAPI implements IMegaverseAPI {
-  
-  
 
   getBaseUrl(): string | undefined {
     return process.env.API_BASE_URL;
@@ -88,8 +86,26 @@ export class MegaverseAPI implements IMegaverseAPI {
     return process.env.CANDIDATE_ID;
   }
 
-  public async postPolyanets(goalMap: IGoalMap): Promise<void> {
-    const requests: Promise<any>[] = [];
+  public async postPolyanets(): Promise<void> {
+    const goalMap = await this.getGoal();
+
+    const requests: Promise<Response>[] = [];
+    const limit = pLimit(2);
+
+    const multibar = new MultiBar(
+      {
+        clearOnComplete: true,
+        stopOnComplete: true,
+        forceRedraw: true,
+        hideCursor: true,
+        format:
+          'progress [{bar}] {percentage}% | ETA: {eta}s | {value}/{total}',
+      },
+      Presets.shades_grey
+    );
+
+    let barLength = 0;
+    const bar1 = multibar.create(0, 0);
 
     goalMap.data.forEach((row, rowIndex) => {
       row.forEach((cell, columnIndex) => {
@@ -99,40 +115,69 @@ export class MegaverseAPI implements IMegaverseAPI {
             column: columnIndex,
             candidateId: CANDIDATE_ID,
           };
-          //console.log("Payload: ", payload);
 
-          const request = ky
-            .post(`${BASE_URL}polyanets`, {
-              json: payload,
-              retry: {
-                limit: 100,
-                methods: ['post'],
-                statusCodes: [429],
-                backoffLimit: Infinity,
-                delay: attemptCount => 1 * 2 ** (attemptCount - 1) * 1000,
-              },
-            })
-            .json();
+          barLength++;
 
-          requests.push(request);
+          console.log('payload',payload);
+          console.log(`${BASE_URL}polyanets`);
+          requests.push(
+            limit(() =>
+              this.makeApiRequest(
+                `${BASE_URL}/polyanets`,
+                'post',
+                payload,
+                multibar,
+                bar1
+              )
+            )
+          );
+
         }
       });
     });
 
+    bar1.setTotal(barLength);
+
+    // If remote state is same as Goal, we've submitted all the payloads succesfully
+
+    if (barLength === 0) {
+      console.log('All submissions have been processed.');
+      bar1.stop();
+      return;
+    }
+
+    await Promise.all(requests);
+
+    // stop the progress bar
+    bar1.stop();
+
+    // our local state says we don't have any remaining requests, but did all requests went through?
+    // recursively call this function until remote state is exactly same as Goal
+
+    this.postPolyanets();
+    console.log('All map entities have been processed successfully.');
+
     // Wait for all the requests to complete
-    //await Promise.all(requests);
   }
 
   public async getGoal(): Promise<IGoalMap> {
+    try {
     const response = await ky
       .get(`${BASE_URL}/map/${CANDIDATE_ID}/goal`)
       .json<IGoalMapJSON>();
     return {
       data: response.goal,
     };
+  } catch (error) {
+    console.log(`Error: ${error} \n`);
+    return {
+      data: []
+    };
+  }
   }
 
   public async getMap(): Promise<ICurrentMap> {
+    try {
     const response = await ky
       .get(`${BASE_URL}/map/${CANDIDATE_ID}`)
       .json<ICurrentMap>();
@@ -142,6 +187,14 @@ export class MegaverseAPI implements IMegaverseAPI {
         content: response.map?.content,
       },
     };
+  } catch (error) {
+    console.log(`Error: ${error} \n`);
+    return {
+       map: {
+    content: []}
+
+    };
+  }
   }
 
   public getMapString(map: ICurrentMap): string[] {
@@ -237,25 +290,6 @@ export class MegaverseAPI implements IMegaverseAPI {
     }
   }
 
-  public showDifferences(currentMap: ICurrentMap, goalMap: IGoalMap): string[] {
-    const currentMapRows = this.getMapString(currentMap);
-    const goalMapRows = this.getGoalString(goalMap);
-
-    const differences: string[] = [];
-
-    currentMapRows.forEach((row, index) => {
-      const goalRow = goalMapRows[index] || '';
-      if (row !== goalRow) {
-        // Construct a descriptive string for each difference and add it to the array
-        differences.push(
-          `Row ${index + 1} - Current: ${row} | Goal: ${goalRow}`
-        );
-      }
-    });
-
-    return differences;
-  }
-
   public showMap(map: ICurrentMap): void {
     map.map.content.forEach(row => {
       const rowString = row
@@ -269,10 +303,10 @@ export class MegaverseAPI implements IMegaverseAPI {
             case 2:
               return COMETH_EMOJI;
             default:
-              return ' '; // Handles any unexpected cell type
+              return ' ';
           }
         })
-        .join(''); // Joining cells into a single string representing the row
+        .join('');
 
       console.log(rowString);
     });
@@ -281,7 +315,7 @@ export class MegaverseAPI implements IMegaverseAPI {
   public showGoal(map: IGoalMap): void {
     // we want 4 empty spaces on the left as it looks better in the console, just for aesthetics purposes.
     const leftMargin = ' '.repeat(4);
-    //console.log('Here is your Goal Map');
+
     const mapRows = map.data.map(
       row =>
         leftMargin +
@@ -338,7 +372,7 @@ export class MegaverseAPI implements IMegaverseAPI {
       Presets.shades_grey
     );
 
-    let barLength2 = 0;
+    let barLength = 0;
     const bar1 = multibar.create(0, 0);
 
     goalMap.data.forEach((row, rowIndex) => {
@@ -353,7 +387,7 @@ export class MegaverseAPI implements IMegaverseAPI {
         switch (cell) {
           case 'POLYANET':
             url += 'polyanets';
-            barLength2++;
+            barLength++;
             break;
           case 'BLUE_SOLOON':
           case 'RED_SOLOON':
@@ -361,7 +395,7 @@ export class MegaverseAPI implements IMegaverseAPI {
           case 'WHITE_SOLOON':
             url += 'soloons';
             payload.color = cell.split('_')[0].toLowerCase();
-            barLength2++;
+            barLength++;
             break;
           case 'UP_COMETH':
           case 'DOWN_COMETH':
@@ -369,10 +403,10 @@ export class MegaverseAPI implements IMegaverseAPI {
           case 'RIGHT_COMETH':
             url += 'comeths';
             payload.direction = cell.split('_')[0].toLowerCase();
-            barLength2++;
+            barLength++;
             break;
           default:
-            return; // Skip processing if it's not a special entity
+            return;
         }
 
         //const request = ;
@@ -383,11 +417,11 @@ export class MegaverseAPI implements IMegaverseAPI {
         );
       });
     });
-    bar1.setTotal(barLength2);
+    bar1.setTotal(barLength);
 
     // If remote state is same as Goal, we've submitted all the payloads succesfully
 
-    if (barLength2 === 0) {
+    if (barLength === 0) {
       console.log('All submissions have been processed.');
       bar1.stop();
       return;
@@ -403,12 +437,6 @@ export class MegaverseAPI implements IMegaverseAPI {
 
     this.processMapEntities();
     console.log('All map entities have been processed successfully.');
-  }
-
-  validate() {
-    console.log('validation logic here');
-    //    const goal = this.getGoal();
-    //  const map = this.getMap();
   }
 
   public async reset() {
@@ -428,13 +456,13 @@ export class MegaverseAPI implements IMegaverseAPI {
       Presets.shades_grey
     );
 
-    let barLength2 = 0;
+    let barLength = 0;
     const bar1 = multibar.create(0, 0);
 
     map.map.content.forEach((row, rowIndex) => {
       row.forEach(async (cell, columnIndex) => {
         if (cell !== null) {
-          barLength2++;
+          barLength++;
           const payload = {
             row: rowIndex,
             column: columnIndex,
@@ -462,9 +490,9 @@ export class MegaverseAPI implements IMegaverseAPI {
       });
     });
 
-    bar1.setTotal(barLength2);
+    bar1.setTotal(barLength);
 
-    if (barLength2 === 0) {
+    if (barLength === 0) {
       console.log('All deletes have been processed.');
       bar1.stop();
       return;
@@ -472,16 +500,6 @@ export class MegaverseAPI implements IMegaverseAPI {
     await Promise.all(requests);
     this.reset();
     console.log('All deletes have been processed.');
-  }
-
-  private parseErrorMessage(error: any): string {
-    // Improved error message parsing
-    if (error.response) {
-      return `${error.response.status} ${
-        error.response.statusText
-      }: ${JSON.stringify(error.response.data)}`;
-    }
-    return error.message;
   }
 
   async makeApiRequest(
@@ -500,7 +518,7 @@ export class MegaverseAPI implements IMegaverseAPI {
           limit: 1000,
           methods: [method],
           statusCodes: [413, 429, 503],
-          //delay: attemptCount => Math.pow(2, attemptCount - 1) * 1000,
+          // Limit backoff's maximum time to 6 seconds as there is not much benefit beyond this point.
           backoffLimit: 6000,
           delay: attemptCount => 1.4 * 2 ** (attemptCount - 1) * 1000,
         },
