@@ -16,6 +16,7 @@ const program = new Command()
   .option('-p2, --phase2', 'Phase 2 Solution')
   .option('-v, --validate', 'Validate')
   .option('-r, --reset', 'Reset')
+  .option('-d, --diff', 'Difference')
   .parse(process.argv);
 
 const options = program.opts();
@@ -36,7 +37,6 @@ Here is your Goal Map:
 if (options.showmap) {
   greetAstralTraveler();
   const map = await api.getMap();
-  //console.log('Goal Map from Main: ', map);
   api.showMap(map);
 }
 
@@ -45,6 +45,14 @@ if (options.showgoal) {
   const map = await api.getGoal();
   //console.log('Goal Map from Main: ', map);
   api.showGoal(map);
+}
+
+if (options.diff) {
+  //console.log("DIFFERENCEs:",differences);
+  // If you want to print the differences
+  //differences.forEach(diff => console.log(diff));
+
+  api.processMapEntities();
 }
 
 if (options.reset) {
@@ -58,7 +66,7 @@ if (options.phase1) {
 
 if (options.phase2) {
   const map = await api.getGoal();
-  api.processMapEntities(map);
+  //api.processMapEntities(map);
 }
 
 if (options.validate) {

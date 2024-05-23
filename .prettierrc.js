@@ -1,3 +1,7 @@
-module.exports = {
-  ...require('gts/.prettierrc.json')
-}
+export default {
+  // Your Prettier config settings
+  singleQuote: true,
+  bracketSpacing: false,
+  trailingComma: 'es5',
+  arrowParens: 'avoid',
+};

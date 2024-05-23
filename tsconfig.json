@@ -7,10 +7,7 @@
     "module": "ESNext",
     "moduleResolution": "node",
     "sourceMap": true,
-    "esModuleInterop": true,
+    "esModuleInterop": true
   },
-  "include": [
-    "src/**/*.ts",
-    "test/**/*.ts"
-  ]
+  "include": ["src/**/*.ts", "test/**/*.ts"]
 }
