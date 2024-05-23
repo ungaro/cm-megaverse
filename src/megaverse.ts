@@ -377,18 +377,23 @@ export class MegaverseAPI implements IMegaverseAPI {
     });
     bar1.setTotal(barLength2);
 
+
+   // If remote state is same as Goal, we've submitted all the payloads succesfully
+   
     if (barLength2 === 0) {
       console.log('All submissions have been processed.');
       bar1.stop();
       return;
     }
 
-    //const promises = objects.map((object) => limit(() => MegaverseApiClient.postObject(object)));
-
     await Promise.all(requests);
 
     // stop the progress bar
     bar1.stop();
+
+    // our local state says we don't have any remaining requests, but did all requests went through?
+    // recursively call this function until remote state is exactly same as Goal
+
     this.processMapEntities();
     console.log('All map entities have been processed successfully.');
   }
