@@ -34,27 +34,11 @@ export interface ICurrentMap {
 interface ITypeMap {
   [key: number]: any; // Adjust 'any' to be more specific if possible
 }
-/*
-const TYPE_MAP: ITypeMap = {
-  0: 'POLYANET',
-  1: {
-    white: 'WHITE_SOLOON',
-    blue: 'BLUE_SOLOON',
-    purple: 'PURPLE_SOLOON',
-    red: 'RED_SOLOON',
-  },
-  2: {
-    up: 'UP_COMETH',
-    down: 'DOWN_COMETH',
-    left: 'LEFT_COMETH',
-    right: 'RIGHT_COMETH',
-  },
-};
-*/
+
 const URL_MAP: ITypeMap = {
-  0: `${BASE_URL}polyanets`,
-  1: `${BASE_URL}soloons`,
-  2: `${BASE_URL}comeths`,
+  0: `${BASE_URL}/polyanets`,
+  1: `${BASE_URL}/soloons`,
+  2: `${BASE_URL}/comeths`,
 };
 
 interface IMegaverseAPI {
@@ -68,8 +52,6 @@ interface IPayload {
   candidateId: string;
 }
 
-type Color = 'blue' | 'red' | 'purple' | 'white';
-type Direction = 'up' | 'down' | 'left' | 'right';
 */
 const SPACE_EMOJI = '\u{1F30C}';
 const POLYANET_EMOJI = '\u{1FA90}';
@@ -77,7 +59,6 @@ const SOLOON_EMOJI = '\u{1F319}';
 const COMETH_EMOJI = '\u{2604}';
 
 export class MegaverseAPI implements IMegaverseAPI {
-
   getBaseUrl(): string | undefined {
     return process.env.API_BASE_URL;
   }
@@ -86,8 +67,15 @@ export class MegaverseAPI implements IMegaverseAPI {
     return process.env.CANDIDATE_ID;
   }
 
-  public async postPolyanets(): Promise<void> {
-    const goalMap = await this.getGoal();
+  public async phase1(): Promise<void> {
+    const map = await this.getMap();
+    const goal = await this.getGoal();
+
+    const differences = await this.calculateDifferences(map, goal);
+
+    const goalMap: IGoalMap = {
+      data: differences,
+    };
 
     const requests: Promise<Response>[] = [];
     const limit = pLimit(2);
@@ -118,8 +106,6 @@ export class MegaverseAPI implements IMegaverseAPI {
 
           barLength++;
 
-          console.log('payload',payload);
-          console.log(`${BASE_URL}polyanets`);
           requests.push(
             limit(() =>
               this.makeApiRequest(
@@ -131,7 +117,6 @@ export class MegaverseAPI implements IMegaverseAPI {
               )
             )
           );
-
         }
       });
     });
@@ -154,7 +139,7 @@ export class MegaverseAPI implements IMegaverseAPI {
     // our local state says we don't have any remaining requests, but did all requests went through?
     // recursively call this function until remote state is exactly same as Goal
 
-    this.postPolyanets();
+    this.phase1();
     console.log('All map entities have been processed successfully.');
 
     // Wait for all the requests to complete
@@ -162,39 +147,39 @@ export class MegaverseAPI implements IMegaverseAPI {
 
   public async getGoal(): Promise<IGoalMap> {
     try {
-    const response = await ky
-      .get(`${BASE_URL}/map/${CANDIDATE_ID}/goal`)
-      .json<IGoalMapJSON>();
-    return {
-      data: response.goal,
-    };
-  } catch (error) {
-    console.log(`Error: ${error} \n`);
-    return {
-      data: []
-    };
-  }
+      const response = await ky
+        .get(`${BASE_URL}/map/${CANDIDATE_ID}/goal`)
+        .json<IGoalMapJSON>();
+      return {
+        data: response.goal,
+      };
+    } catch (error) {
+      console.log(`Error: ${error} \n`);
+      return {
+        data: [],
+      };
+    }
   }
 
   public async getMap(): Promise<ICurrentMap> {
     try {
-    const response = await ky
-      .get(`${BASE_URL}/map/${CANDIDATE_ID}`)
-      .json<ICurrentMap>();
+      const response = await ky
+        .get(`${BASE_URL}/map/${CANDIDATE_ID}`)
+        .json<ICurrentMap>();
 
-    return {
-      map: {
-        content: response.map?.content,
-      },
-    };
-  } catch (error) {
-    console.log(`Error: ${error} \n`);
-    return {
-       map: {
-    content: []}
-
-    };
-  }
+      return {
+        map: {
+          content: response.map?.content,
+        },
+      };
+    } catch (error) {
+      console.log(`Error: ${error} \n`);
+      return {
+        map: {
+          content: [],
+        },
+      };
+    }
   }
 
   public getMapString(map: ICurrentMap): string[] {
@@ -277,7 +262,7 @@ export class MegaverseAPI implements IMegaverseAPI {
   }
 
   private cellTypeToString(cell: IMapContent | null): string {
-    if (!cell) return 'SPACE'; // Handling null directly
+    if (!cell) return 'SPACE'; // Handling null
     switch (cell.type) {
       case 0:
         return 'POLYANET';
@@ -347,7 +332,7 @@ export class MegaverseAPI implements IMegaverseAPI {
     mapRows.forEach(rowString => console.log(rowString));
   }
 
-  public async processMapEntities(): Promise<void> {
+  public async phase2(): Promise<void> {
     const map = await this.getMap();
     const goal = await this.getGoal();
 
@@ -386,14 +371,14 @@ export class MegaverseAPI implements IMegaverseAPI {
 
         switch (cell) {
           case 'POLYANET':
-            url += 'polyanets';
+            url += '/polyanets';
             barLength++;
             break;
           case 'BLUE_SOLOON':
           case 'RED_SOLOON':
           case 'PURPLE_SOLOON':
           case 'WHITE_SOLOON':
-            url += 'soloons';
+            url += '/soloons';
             payload.color = cell.split('_')[0].toLowerCase();
             barLength++;
             break;
@@ -401,7 +386,7 @@ export class MegaverseAPI implements IMegaverseAPI {
           case 'DOWN_COMETH':
           case 'LEFT_COMETH':
           case 'RIGHT_COMETH':
-            url += 'comeths';
+            url += '/comeths';
             payload.direction = cell.split('_')[0].toLowerCase();
             barLength++;
             break;
@@ -435,7 +420,7 @@ export class MegaverseAPI implements IMegaverseAPI {
     // our local state says we don't have any remaining requests, but did all requests went through?
     // recursively call this function until remote state is exactly same as Goal
 
-    this.processMapEntities();
+    this.phase2();
     console.log('All map entities have been processed successfully.');
   }
 

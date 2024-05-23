@@ -53,12 +53,11 @@ Here is your Goal Map:
     }
     
     if (options.phase1) {
-      //const map = await api.getGoal();
-      api.postPolyanets();
+      api.phase1();
     }
     
     if (options.phase2) {
-      api.processMapEntities();
+      api.phase2();
     }
     
 

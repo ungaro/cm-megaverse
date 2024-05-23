@@ -30,7 +30,7 @@
     "pretest": "npm run compile",
     "posttest": "npm run lint",
     "build": "npx tsc",
-    "create-executable-mac": "bun build ./src/index.ts --compile --outfile ./megaverse-mac"
+    "create-executable": "bun build ./src/index.ts --compile --outfile ./megaverse"
   },
   "dependencies": {
     "@commander-js/extra-typings": "^12.0.1",

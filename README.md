@@ -13,6 +13,14 @@ node ./dist/index.js
 
 See [available Commands.](#commandline)
 
+## Explanation
+
+Megaverse is a command line application that can be compiled to native code using bun. It uses cli arguments and provides help, and provides a progress bar included for operations.
+
+Request are retried with exponential backoff with a maximum limit, and all phases are always compared remotely to match the goal and map state.
+
+Undocumented map endpoint used for comparison between goal map.
+
 ## Run Tests
 
 <code>yarn test</code>
@@ -23,11 +31,8 @@ Easiest way to build executable is using bun.
 
 <code>npm install -g bun</code>
 
-<code>bun create-executable-mac</code>
+<code>bun create-executable</code>
 
-<code>bun create-executable-windows</code>
-
-<code>bun create-executable-linux</code>
 
 <a name="commandline"></a>
 
@@ -67,18 +72,19 @@ You can use use <code>./megaverse --showmap</code> to see your current map in te
 And you can use use <code>./megaverse --showgoal</code> to see your current goal.
 
 <a href="#"><img src="./_assets/cli_showgoal.png"  width="600" ></a>
-</p>
 
+</p>
 
 <p>
 And you can use use <code>./megaverse --phase1</code> or <code>./megaverse --phase2</code> to see solve the challenges.
 
 <a href="#"><img src="./_assets/cli_phase2.png"  width="600" ></a>
+
 </p>
 
 <p>
 And you can use use <code>./megaverse --reset</code> to see your current goal.
 
 <a href="#"><img src="./_assets/cli_reset.png"  width="600" ></a>
-</p>
 
+</p>
